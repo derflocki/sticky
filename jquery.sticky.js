@@ -24,20 +24,23 @@
 	$document = $(document),
 	sticked = [],
 	windowHeight = $window.height(),
+	documentHeight = 0,
 	scroller = function() {
 		var scrollTop = $window.scrollTop(),
-		documentHeight = $document.height(),
+		//documentHeight = $document.height(),
 		dwh = documentHeight - windowHeight,
 		extra = (scrollTop > dwh) ? dwh - scrollTop : 0;
 		//the sticked's are ordered from bottom to top, so if one was aleardy sticked, others are unsticked
 		//TODO: it would be nice if the items were to be shoved off the screen
 		var one_sticked = false;
 		for (var i = 0; i < sticked.length; i++) {
-			var s = sticked[i],
-			elementTop = s.stickyWrapper.offset().top,
-			etse = elementTop - s.topSpacing - extra;
-
-			if (one_sticked || (scrollTop <= etse)) {
+			var s = sticked[i];
+			//elementTop = s.stickyWrapper.offset().top,
+			//etse = elementTop - s.topSpacing - extra;
+			if(!s.visible) {
+				continue;
+			}
+			if (one_sticked || (scrollTop <= s.etse - extra)) {
 				if (one_sticked || (s.currentTop !== null)) {
 					s.css = {
 						'height': '',
@@ -53,8 +56,7 @@
 				}
 			}
 			else {
-				var newTop = documentHeight - s.stickyElement.outerHeight()
-				- s.topSpacing - s.bottomSpacing - scrollTop - extra;
+				var newTop = s.newTop - scrollTop - extra;
 				if (newTop < 0) {
 					newTop = newTop + s.topSpacing;
 				} else {
@@ -79,39 +81,39 @@
 				one_sticked = true;
 			}
 		}
-		if(one_sticked) {
-			console.log(i);
-		}
 	},
 	resizer = function() {
-		setTimeout(function() {
-			reorder();
-			for (var i = 0; i < sticked.length; i++) {
-				var s = sticked[i];
-				if(s.currentTop !== null) {
-					if (s.getWidthFrom.length !== 0) {
-						s.css['width'] = $(s.getWidthFrom).width();
-					} else {
-						//unfix it, so we can get the width, and then refix it again
-						s.stickyElement.css({
-							'position': 'relative',
-							'width': ''
-						});
-						s.css['width'] = s.stickyElement.css('width');
-						s.css['position'] = 'fixed';
-					}
-					console.log(s.css);
-					s.stickyElement.css(s.css);
+		reorder();
+		//TODO: precompute the "break-points" so we don't have to do it on each scroll
+		var s=null, elementTop = 0;
+		documentHeight = $document.height();
+		windowHeight = $window.height();
+		for (var i = 0; i < sticked.length; i++) {
+			s = sticked[i];
+			elementTop = s.stickyWrapper.offset().top;
+			s.etse = elementTop - s.topSpacing;
+			s.newTop = documentHeight - s.stickyElement.outerHeight()- s.topSpacing - s.bottomSpacing;
+			s.visible = s.stickyElement.is(':visible');
+			if(s.currentTop !== null) {
+				if (s.getWidthFrom.length !== 0) {
+					s.css['width'] = $(s.getWidthFrom).width();
+				} else {
+					//unfix it, so we can get the width, and then refix it again
+					s.stickyElement.css({
+						'position': 'relative',
+						'width': ''
+					});
+					s.css['width'] = s.stickyElement.css('width');
+					s.css['position'] = 'fixed';
 				}
+				s.stickyElement.css(s.css);
 			}
-			windowHeight = $window.height();
-		},0);
+		}
 	},
 	reorder = function() {
 		sticked.sort(function(a,b) {
 			return b.stickyWrapper.offset().top - a.stickyWrapper.offset().top;
 		});
-		console.log(sticked);
 	},
 	methods = {
 		init: function(options) {
@@ -142,14 +144,14 @@
 					stickyWrapper: stickyWrapper,
 					className: o.className,
 					getWidthFrom: $(o.getWidthFrom),
-					css: {}
+					css: {},
+					visible: false
 				});
-			reorder();
 			});
 		},
 		update: scroller
 	};
-
+/*
 	// should be more efficient than using $window.scroll(scroller) and $window.resize(resizer):
 	if (window.addEventListener) {
 		window.addEventListener('scroll', scroller, false);
@@ -158,6 +160,8 @@
 		window.attachEvent('onscroll', scroller);
 	//	window.attachEvent('onresize', resizer);
 	}
+	*/
+	$window.on("scroll", scroller);
 	if($window.onWithDelay) {
 		$window.onWithDelay("resize", resizer, 50, true);
 	} else {
@@ -168,12 +172,15 @@
 		if (methods[method]) {
 			return methods[method].apply(this, Array.prototype.slice.call(arguments, 1));
 		} else if (typeof method === 'object' || !method ) {
-			return methods.init.apply( this, arguments );
+			var els = methods.init.apply( this, arguments );
+			resizer();
+			scroller();
+			return els;
 		} else {
 			$.error('Method ' + method + ' does not exist on jQuery.sticky');
 		}
 	};
-	$(function() {
-		setTimeout(scroller, 0);
-	});
+	//$(function() {
+	//	setTimeout(scroller, 0);
+	//});
 })(jQuery);
