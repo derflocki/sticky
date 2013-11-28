@@ -29,18 +29,26 @@
 		documentHeight = $document.height(),
 		dwh = documentHeight - windowHeight,
 		extra = (scrollTop > dwh) ? dwh - scrollTop : 0;
-
+		//the sticked's are ordered from bottom to top, so if one was aleardy sticked, others are unsticked
+		//TODO: it would be nice if the items were to be shoved off the screen
+		var one_sticked = false;
 		for (var i = 0; i < sticked.length; i++) {
 			var s = sticked[i],
 			elementTop = s.stickyWrapper.offset().top,
 			etse = elementTop - s.topSpacing - extra;
 
-			if (scrollTop <= etse) {
-				if (s.currentTop !== null) {
+			if (one_sticked || (scrollTop <= etse)) {
+				if (one_sticked || (s.currentTop !== null)) {
+					s.css = {
+						'height': '',
+						'width': '',
+						'position': 'relative',
+						'top': ''
+					};
+					s.stickyWrapper.css('height', '');
 					s.stickyElement
-					.css('position', '')
-					.css('top', '');
-					s.stickyElement.parent().removeClass(s.className);
+					.css(s.css)
+					.parent().removeClass(s.className);
 					s.currentTop = null;
 				}
 			}
@@ -53,22 +61,57 @@
 					newTop = s.topSpacing;
 				}
 				if (s.currentTop != newTop) {
-					s.stickyElement
-					.css('position', 'fixed')
-					.css('top', newTop);
-
-					if (typeof s.getWidthFrom !== 'undefined') {
-						s.stickyElement.css('width', $(s.getWidthFrom).width());
+					s.css = {
+						'position': 'fixed',
+						'top':	newTop
+					};
+					if (s.getWidthFrom.length !== 0) {
+						s.css['width'] = $(s.getWidthFrom).width();
+					} else {
+						s.css['width'] = s.stickyElement.css('width');
 					}
-
-					s.stickyElement.parent().addClass(s.className);
+					s.stickyWrapper.css('height', s.stickyElement.css('height'));
+					s.stickyElement
+					.css(s.css)
+					.parent().addClass(s.className);
 					s.currentTop = newTop;
 				}
+				one_sticked = true;
 			}
+		}
+		if(one_sticked) {
+			console.log(i);
 		}
 	},
 	resizer = function() {
-		windowHeight = $window.height();
+		setTimeout(function() {
+			reorder();
+			for (var i = 0; i < sticked.length; i++) {
+				var s = sticked[i];
+				if(s.currentTop !== null) {
+					if (s.getWidthFrom.length !== 0) {
+						s.css['width'] = $(s.getWidthFrom).width();
+					} else {
+						//unfix it, so we can get the width, and then refix it again
+						s.stickyElement.css({
+							'position': 'relative',
+							'width': ''
+						});
+						s.css['width'] = s.stickyElement.css('width');
+						s.css['position'] = 'fixed';
+					}
+					console.log(s.css);
+					s.stickyElement.css(s.css);
+				}
+			}
+			windowHeight = $window.height();
+		},0);
+	},
+	reorder = function() {
+		sticked.sort(function(a,b) {
+			return b.stickyWrapper.offset().top - a.stickyWrapper.offset().top;
+		});
+		console.log(sticked);
 	},
 	methods = {
 		init: function(options) {
@@ -76,11 +119,11 @@
 			return this.each(function() {
 				var stickyElement = $(this);
 
-				var stickyId = stickyElement.attr('id');
+				//var stickyId = stickyElement.attr('id');
 				var wrapper = $('<div></div>')
-				.attr('id', stickyId + '-sticky-wrapper')
+				//.attr('id', stickyId + '-sticky-wrapper')
 				.addClass(o.wrapperClassName);
-				stickyElement.wrapAll(wrapper);
+				stickyElement.css('position', 'relative').wrapAll(wrapper);
 
 				if (o.center) {
 					stickyElement.parent().css({width:stickyElement.outerWidth(),marginLeft:"auto",marginRight:"auto"});
@@ -91,7 +134,6 @@
 				}
 
 				var stickyWrapper = stickyElement.parent();
-				stickyWrapper.css('height', stickyElement.outerHeight());
 				sticked.push({
 					topSpacing: o.topSpacing,
 					bottomSpacing: o.bottomSpacing,
@@ -99,8 +141,10 @@
 					currentTop: null,
 					stickyWrapper: stickyWrapper,
 					className: o.className,
-					getWidthFrom: o.getWidthFrom
+					getWidthFrom: $(o.getWidthFrom),
+					css: {}
 				});
+			reorder();
 			});
 		},
 		update: scroller
@@ -109,10 +153,15 @@
 	// should be more efficient than using $window.scroll(scroller) and $window.resize(resizer):
 	if (window.addEventListener) {
 		window.addEventListener('scroll', scroller, false);
-		window.addEventListener('resize', resizer, false);
+	//	window.addEventListener('resize', resizer, false);
 	} else if (window.attachEvent) {
 		window.attachEvent('onscroll', scroller);
-		window.attachEvent('onresize', resizer);
+	//	window.attachEvent('onresize', resizer);
+	}
+	if($window.onWithDelay) {
+		$window.onWithDelay("resize", resizer, 50, true);
+	} else {
+		$window.on("resize", resizer);
 	}
 
 	$.fn.sticky = function(method) {
