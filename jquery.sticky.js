@@ -1,15 +1,12 @@
-// Sticky Plugin v1.0.0 for jQuery
-// =============
-// Author: Anthony Garand
-// Improvements by German M. Bravo (Kronuz) and Ruud Kamphuis (ruudk)
-// Improvements by Leonardo C. Daronco (daronco)
-// Created: 2/14/2011
-// Date: 2/12/2012
-// Website: http://labs.anthonygarand.com/sticky
-// Description: Makes an element on the page stick on the screen as you scroll
-//       It will only set the 'top' and 'position' of your element, you
-//       might need to adjust the width in some cases.
-// vim: tabstop=4 expandtab shiftwidth=4 softtabstop=4
+/*! Sticky Plugin v2.0.0 for jQuery
+ * Author: Anthony Garand
+ * Improvements by Florian Dorn
+ * Improvements by German M. Bravo (Kronuz) and Ruud Kamphuis (ruudk)
+ * Improvements by Leonardo C. Daronco (daronco)
+ * Description: Makes an element on the page stick on the screen as you scroll.
+ * 
+ * vim: tabstop=4 expandtab shiftwidth=4 softtabstop=4
+ */
 
 (function($) {
 	var defaults = {
@@ -32,16 +29,48 @@
 		extra = (scrollTop > dwh) ? dwh - scrollTop : 0;
 		//the sticked's are ordered from bottom to top, so if one was aleardy sticked, others are unsticked
 		//TODO: it would be nice if the items were to be shoved off the screen
-		var one_sticked = false;
+		var s=null,p=null,the_sticked_one = false;
+		//traverse from bottom to top
 		for (var i = 0; i < sticked.length; i++) {
-			var s = sticked[i];
+			s = sticked[i], p = (i > 0) ? sticked[i-1] : null;
 			//elementTop = s.stickyWrapper.offset().top,
 			//etse = elementTop - s.topSpacing - extra;
 			if(!s.visible) {
 				continue;
 			}
-			if (one_sticked || (scrollTop <= s.etse - extra)) {
-				if (one_sticked || (s.currentTop !== null)) {
+			if(!the_sticked_one && (scrollTop > s.etse - extra)) {
+				//stick
+				var newTop = s.newTop - scrollTop - extra;
+				if (newTop < 0) {
+					newTop = newTop + s.topSpacing;
+				} else {
+					newTop = s.topSpacing;
+				}
+				the_sticked_one = s;
+				if (s.currentTop != newTop) {
+					s.css = {
+						'position': 'fixed',
+						'top':	newTop
+					};
+					if (s.getWidthFrom.length !== 0) {
+						s.css['width'] = $(s.getWidthFrom).width();
+					} else {
+						s.css['width'] = s.stickyElement.width();
+					}
+					s.stickyWrapper.css('height', s.stickyElement.outerHeight());
+					s.stickyElement
+					.css(s.css)
+					.parent().addClass(s.className);
+					s.currentTop = newTop;
+				}
+				if(p && (scrollTop > p.etse - extra - s.successorHeight)) {
+					console.log("A successor is overlapping!");
+					s.stickyElement.css('top', p.etse - scrollTop - extra - s.stickyElement.outerHeight());
+				}
+			} else {
+				//unstick
+				if (the_sticked_one || (s.currentTop !== null)) {
+					//unstick
 					s.css = {
 						'height': '',
 						'width': '',
@@ -55,41 +84,25 @@
 					s.currentTop = null;
 				}
 			}
-			else {
-				var newTop = s.newTop - scrollTop - extra;
-				if (newTop < 0) {
-					newTop = newTop + s.topSpacing;
-				} else {
-					newTop = s.topSpacing;
-				}
-				if (s.currentTop != newTop) {
-					s.css = {
-						'position': 'fixed',
-						'top':	newTop
-					};
-					if (s.getWidthFrom.length !== 0) {
-						s.css['width'] = $(s.getWidthFrom).width();
-					} else {
-						s.css['width'] = s.stickyElement.css('width');
-					}
-					s.stickyWrapper.css('height', s.stickyElement.css('height'));
-					s.stickyElement
-					.css(s.css)
-					.parent().addClass(s.className);
-					s.currentTop = newTop;
-				}
-				one_sticked = true;
+		}
+	},
+	getNextVisibleIndex = function(i) {
+		for (var i = i-1; i > -1; i--) {
+			if(sticked[i].stickyElement.is(':visible')) {
+				return i;
 			}
 		}
 	},
 	resizer = function() {
 		reorder();
-		//TODO: precompute the "break-points" so we don't have to do it on each scroll
-		var s=null, elementTop = 0;
+		var s=null, elementTop = 0, p=null;
 		documentHeight = $document.height();
 		windowHeight = $window.height();
-		for (var i = 0; i < sticked.length; i++) {
-			s = sticked[i];
+		for (var i = sticked.length-1; i > -1; i--) {
+			s = sticked[i], p = (i > 0) ? sticked[getNextVisibleIndex(i)] : null;
+			if(p) {
+				s.successorHeight = p.stickyElement.outerHeight();
+			}
 			elementTop = s.stickyWrapper.offset().top;
 			s.etse = elementTop - s.topSpacing;
 			s.newTop = documentHeight - s.stickyElement.outerHeight()- s.topSpacing - s.bottomSpacing;
@@ -111,6 +124,7 @@
 		}
 	},
 	reorder = function() {
+		//order by onscreen-position (top)
 		sticked.sort(function(a,b) {
 			return b.stickyWrapper.offset().top - a.stickyWrapper.offset().top;
 		});
