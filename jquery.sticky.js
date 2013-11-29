@@ -32,7 +32,7 @@
 		var s=null,p=null,the_sticked_one = false;
 		//traverse from bottom to top
 		for (var i = 0; i < sticked.length; i++) {
-			s = sticked[i], p = (i > 0) ? sticked[i-1] : null;
+			s = sticked[i], p = (i > 0) ? sticked[getNextVisibleIndex(i,-1)] : null;
 			//elementTop = s.stickyWrapper.offset().top,
 			//etse = elementTop - s.topSpacing - extra;
 			if(!s.visible) {
@@ -57,14 +57,16 @@
 					} else {
 						s.css['width'] = s.stickyElement.width();
 					}
-					s.stickyWrapper.css('height', s.stickyElement.outerHeight());
+					s.stickyWrapper.css({
+						'height': s.stickyElement.outerHeight(),
+						'width': s.stickyElement.outerWidth()
+					});
 					s.stickyElement
 					.css(s.css)
 					.parent().addClass(s.className);
 					s.currentTop = newTop;
 				}
 				if(p && (scrollTop > p.etse - extra - s.successorHeight)) {
-					console.log("A successor is overlapping!");
 					s.stickyElement.css('top', p.etse - scrollTop - extra - s.stickyElement.outerHeight());
 				}
 			} else {
@@ -86,8 +88,8 @@
 			}
 		}
 	},
-	getNextVisibleIndex = function(i) {
-		for (var i = i-1; i > -1; i--) {
+	getNextVisibleIndex = function(j, inc) {
+		for (var i = j-1; i > -1; i=i+inc) {
 			if(sticked[i].stickyElement.is(':visible')) {
 				return i;
 			}
@@ -99,7 +101,7 @@
 		documentHeight = $document.height();
 		windowHeight = $window.height();
 		for (var i = sticked.length-1; i > -1; i--) {
-			s = sticked[i], p = (i > 0) ? sticked[getNextVisibleIndex(i)] : null;
+			s = sticked[i], p = (i > 0) ? sticked[getNextVisibleIndex(i,-1)] : null;
 			if(p) {
 				s.successorHeight = p.stickyElement.outerHeight();
 			}
@@ -122,6 +124,7 @@
 				s.stickyElement.css(s.css);
 			}
 		}
+		scroller();
 	},
 	reorder = function() {
 		//order by onscreen-position (top)
@@ -163,7 +166,7 @@
 				});
 			});
 		},
-		update: scroller
+		update: resizer
 	};
 /*
 	// should be more efficient than using $window.scroll(scroller) and $window.resize(resizer):
@@ -175,11 +178,11 @@
 	//	window.attachEvent('onresize', resizer);
 	}
 	*/
-	$window.on("scroll", scroller);
-	if($window.onWithDelay) {
-		$window.onWithDelay("resize", resizer, 50, true);
+	$document.on("scroll", scroller);
+	if($document.onWithDelay) {
+		$document.onWithDelay("resize", resizer, 50, true);
 	} else {
-		$window.on("resize", resizer);
+		$document.on("resize", resizer);
 	}
 
 	$.fn.sticky = function(method) {
