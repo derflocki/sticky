@@ -1,2 +1,5 @@
 *.psd
 *~
+.settings
+.project
+node_modules
