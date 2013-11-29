@@ -20,25 +20,23 @@
 	$window = $(window),
 	$document = $(document),
 	sticked = [],
-	windowHeight = $window.height(),
+	windowHeight = 0,
 	documentHeight = 0,
+	dwh = 0,
 	scroller = function() {
 		var scrollTop = $window.scrollTop(),
-		//documentHeight = $document.height(),
-		dwh = documentHeight - windowHeight,
 		extra = (scrollTop > dwh) ? dwh - scrollTop : 0;
-		//the sticked's are ordered from bottom to top, so if one was aleardy sticked, others are unsticked
-		//TODO: it would be nice if the items were to be shoved off the screen
-		var s=null,p=null,the_sticked_one = false;
+		//the sticked's are ordered from bottom to top. If one was aleardy sticked, others are unsticked
+		var s=null,p=null, one_is_sticky  = false;
 		//traverse from bottom to top
 		for (var i = 0; i < sticked.length; i++) {
-			s = sticked[i], p = (i > 0) ? sticked[getNextVisibleIndex(i,-1)] : null;
+			s = sticked[i], p = (i > 0) ? sticked[getNextVisibleIndex(i)] : null;
 			//elementTop = s.stickyWrapper.offset().top,
 			//etse = elementTop - s.topSpacing - extra;
 			if(!s.visible) {
 				continue;
 			}
-			if(!the_sticked_one && (scrollTop > s.etse - extra)) {
+			if(!one_is_sticky && (scrollTop > s.etse - extra)) {
 				//stick
 				var newTop = s.newTop - scrollTop - extra;
 				if (newTop < 0) {
@@ -46,7 +44,10 @@
 				} else {
 					newTop = s.topSpacing;
 				}
-				the_sticked_one = s;
+				if(p && (scrollTop > p.etse - extra - s.height)) {
+					newTop = p.etse - scrollTop - extra - s.height;
+				}
+				one_is_sticky = true;
 				if (s.currentTop != newTop) {
 					s.css = {
 						'position': 'fixed',
@@ -57,21 +58,13 @@
 					} else {
 						s.css['width'] = s.stickyElement.width();
 					}
-					s.stickyWrapper.css({
-						'height': s.stickyElement.outerHeight(),
-						'width': s.stickyElement.outerWidth()
-					});
-					s.stickyElement
-					.css(s.css)
-					.parent().addClass(s.className);
+					s.stickyWrapper.css('height', s.stickyElement.outerHeight()).addClass(s.className);
+					s.stickyElement.css(s.css);
 					s.currentTop = newTop;
 				}
-				if(p && (scrollTop > p.etse - extra - s.successorHeight)) {
-					s.stickyElement.css('top', p.etse - scrollTop - extra - s.stickyElement.outerHeight());
-				}
-			} else {
+			} else { 
 				//unstick
-				if (the_sticked_one || (s.currentTop !== null)) {
+				if (one_is_sticky || (s.currentTop !== null)) {
 					//unstick
 					s.css = {
 						'height': '',
@@ -79,52 +72,54 @@
 						'position': 'relative',
 						'top': ''
 					};
-					s.stickyWrapper.css('height', '');
-					s.stickyElement
-					.css(s.css)
-					.parent().removeClass(s.className);
+					s.stickyWrapper.css({'height': ''}).removeClass(s.className);
+					s.stickyElement.css(s.css);
 					s.currentTop = null;
 				}
 			}
 		}
 	},
-	getNextVisibleIndex = function(j, inc) {
-		for (var i = j-1; i > -1; i=i+inc) {
-			if(sticked[i].stickyElement.is(':visible')) {
+	getNextVisibleIndex = function(j) {
+		for (var i = j-1; i > -1; i--) {
+			if(sticked[i].visible) {
 				return i;
 			}
 		}
 	},
 	resizer = function() {
-		reorder();
-		var s=null, elementTop = 0, p=null;
-		documentHeight = $document.height();
-		windowHeight = $window.height();
-		for (var i = sticked.length-1; i > -1; i--) {
-			s = sticked[i], p = (i > 0) ? sticked[getNextVisibleIndex(i,-1)] : null;
-			if(p) {
-				s.successorHeight = p.stickyElement.outerHeight();
+			reorder();
+			for (var i = sticked.length-1; i > -1; i--) {
+				sticked[i].visible = sticked[i].stickyElement.is(':visible');
 			}
-			elementTop = s.stickyWrapper.offset().top;
-			s.etse = elementTop - s.topSpacing;
-			s.newTop = documentHeight - s.stickyElement.outerHeight()- s.topSpacing - s.bottomSpacing;
-			s.visible = s.stickyElement.is(':visible');
-			if(s.currentTop !== null) {
-				if (s.getWidthFrom.length !== 0) {
-					s.css['width'] = $(s.getWidthFrom).width();
-				} else {
-					//unfix it, so we can get the width, and then refix it again
-					s.stickyElement.css({
-						'position': 'relative',
-						'width': ''
-					});
-					s.css['width'] = s.stickyElement.css('width');
-					s.css['position'] = 'fixed';
+			var s=null, elementTop = 0, p=null;
+			documentHeight = $document.height();
+			windowHeight = $window.height();
+			dwh = documentHeight - windowHeight;
+			for (var i = sticked.length-1; i > -1; i--) {
+				s = sticked[i], p = (i > 0) ? sticked[getNextVisibleIndex(i)] : null;
+				if(p) {
+					s.height = s.stickyElement.outerHeight();
 				}
-				s.stickyElement.css(s.css);
+				elementTop = s.stickyWrapper.offset().top;
+				s.etse = elementTop - s.topSpacing;
+				s.newTop = documentHeight - s.stickyElement.outerHeight()- s.topSpacing - s.bottomSpacing;
+				if(s.currentTop !== null) 
+				{
+					if (s.getWidthFrom.length !== 0) {
+						s.css['width'] = $(s.getWidthFrom).width();
+					} else {
+						//unfix it, so we can properly compute the width, and then refix it again
+						s.stickyElement.css({
+							'position': 'relative',
+							'width': ''
+						});
+						s.css['width'] = s.stickyElement.outerWidth(); 
+						s.css['position'] = 'fixed';
+					}
+					s.stickyElement.css(s.css);
+				}
 			}
-		}
-		scroller();
+			scroller();
 	},
 	reorder = function() {
 		//order by onscreen-position (top)
@@ -138,21 +133,18 @@
 			return this.each(function() {
 				var stickyElement = $(this);
 
-				//var stickyId = stickyElement.attr('id');
-				var wrapper = $('<div></div>')
-				//.attr('id', stickyId + '-sticky-wrapper')
-				.addClass(o.wrapperClassName);
+				var wrapper = $('<div></div>').addClass(o.wrapperClassName);
 				stickyElement.css('position', 'relative').wrapAll(wrapper);
-
+				var stickyWrapper = stickyElement.parent();
 				if (o.center) {
-					stickyElement.parent().css({width:stickyElement.outerWidth(),marginLeft:"auto",marginRight:"auto"});
+					stickyWrapper.css({width:stickyElement.outerWidth(),marginLeft:"auto",marginRight:"auto"});
 				}
 
 				if (stickyElement.css("float") == "right") {
-					stickyElement.css({"float":"none"}).parent().css({"float":"right"});
+					stickyElement.css({"float":"none"});
+					stickyWrapper.css({"float":"right"});
 				}
-
-				var stickyWrapper = stickyElement.parent();
+				
 				sticked.push({
 					topSpacing: o.topSpacing,
 					bottomSpacing: o.bottomSpacing,
@@ -168,21 +160,13 @@
 		},
 		update: resizer
 	};
-/*
-	// should be more efficient than using $window.scroll(scroller) and $window.resize(resizer):
-	if (window.addEventListener) {
-		window.addEventListener('scroll', scroller, false);
-	//	window.addEventListener('resize', resizer, false);
-	} else if (window.attachEvent) {
-		window.attachEvent('onscroll', scroller);
-	//	window.attachEvent('onresize', resizer);
-	}
-	*/
-	$document.on("scroll", scroller);
-	if($document.onWithDelay) {
-		$document.onWithDelay("resize", resizer, 50, true);
+	
+	//document scroll is not working in IE(7,8)
+	$window.on("scroll", scroller);
+	if($window.onWithDelay) {
+		$window.onWithDelay("resize", resizer, 50, true);
 	} else {
-		$document.on("resize", resizer);
+		$window.on("resize", resizer);
 	}
 
 	$.fn.sticky = function(method) {
@@ -191,13 +175,9 @@
 		} else if (typeof method === 'object' || !method ) {
 			var els = methods.init.apply( this, arguments );
 			resizer();
-			scroller();
 			return els;
 		} else {
 			$.error('Method ' + method + ' does not exist on jQuery.sticky');
 		}
 	};
-	//$(function() {
-	//	setTimeout(scroller, 0);
-	//});
 })(jQuery);
