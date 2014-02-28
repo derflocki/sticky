@@ -12,8 +12,9 @@
 	var defaults = {
 		topSpacing: 0,
 		bottomSpacing: 0,
-		className: 'is-sticky',
-		wrapperClassName: 'sticky-wrapper',
+		wrapperClassName: 'sticky-wrapper',		//class that is added to the wrapper
+		className: 'is-sticky',					//class that is added to the wrapper when sticked
+		classNameWrapped: 'sticky-wrapped',		//class that is added to the wrapped element
 		center: false,
 		getWidthFrom: ''
 	},
@@ -134,7 +135,7 @@
 				var stickyElement = $(this);
 
 				var wrapper = $('<div></div>').addClass(o.wrapperClassName);
-				stickyElement.css('position', 'relative').wrapAll(wrapper);
+				stickyElement.addClass(o.classNameWrapped).css('position', 'relative').wrapAll(wrapper);
 				var stickyWrapper = stickyElement.parent();
 				if (o.center) {
 					stickyWrapper.css({width:stickyElement.outerWidth(),marginLeft:"auto",marginRight:"auto"});
