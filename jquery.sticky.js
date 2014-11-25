@@ -46,13 +46,13 @@
 					newTop = s.topSpacing;
 				}
 				if(p && (scrollTop > p.etse - extra - s.height)) {
-					newTop = p.etse - scrollTop - extra - s.height;
+					newTop = p.etse - scrollTop - extra - s.height + s.topSpacing;
 				}
 				one_is_sticky = true;
 				if (s.currentTop != newTop) {
 					s.css = {
 						'position': 'fixed',
-						'top':	newTop
+						'top':	newTop,
 					};
 					if (s.getWidthFrom.length !== 0) {
 						s.css['width'] = $(s.getWidthFrom).width();
